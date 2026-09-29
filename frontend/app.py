@@ -1,485 +1,430 @@
 import base64
+import html
 from datetime import date
 
 import requests
 import streamlit as st
 
 
-# ---------------------------------------------------------
-# Page Configuration
-# ---------------------------------------------------------
-
 st.set_page_config(
-    page_title="LegalEase - AI Legal Document Generator",
+    page_title="LegalEase",
     page_icon="⚖️",
     layout="wide",
 )
 
 
-# ---------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------
+BACKEND_URL = st.sidebar.text_input(
+    "Backend URL",
+    value="http://127.0.0.1:8000",
+).rstrip("/")
 
-BACKEND_URL = "http://127.0.0.1:8000"
-
-
-# ---------------------------------------------------------
-# Custom CSS
-# ---------------------------------------------------------
 
 st.markdown(
     """
     <style>
-    .main-title {
-        font-size: 42px;
-        font-weight: 700;
-        text-align: center;
-        margin-bottom: 5px;
+
+    .hero {
+        padding: 1.7rem;
+        border-radius: 18px;
+        background:
+            linear-gradient(
+                135deg,
+                #111827,
+                #1f2937
+            );
+        color: white;
+        margin-bottom: 1.2rem;
     }
 
-    .subtitle {
-        text-align: center;
-        font-size: 18px;
-        margin-bottom: 30px;
+    .hero h1 {
+        margin: 0;
     }
 
-    .section-title {
-        font-size: 24px;
-        font-weight: 600;
-        margin-top: 10px;
-        margin-bottom: 15px;
+    .hero p {
+        margin-top: 6px;
+        color: #d1d5db;
     }
 
-    .preview-box {
-        border: 1px solid #cccccc;
-        border-radius: 10px;
-        padding: 25px;
-        background-color: #ffffff;
+    .preview {
+        background: #111827;
+        color: #f9fafb;
+        padding: 1.5rem;
+        border-radius: 14px;
+        border: 1px solid #374151;
+        max-height: 620px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        font-family: Georgia, serif;
+        line-height: 1.7;
     }
+
     </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+st.markdown(
+    """
+    <div class="hero">
+        <h1>⚖️ LegalEase</h1>
+        <p>
+            AI-powered legal document drafting,
+            editing and export.
+        </p>
+    </div>
     """,
     unsafe_allow_html=True,
 )
 
 
-# ---------------------------------------------------------
-# Header
-# ---------------------------------------------------------
+if "document" not in st.session_state:
 
-st.markdown(
-    '<div class="main-title">⚖️ LegalEase</div>',
-    unsafe_allow_html=True,
+    st.session_state.document = ""
+
+
+if "demo_mode" not in st.session_state:
+
+    st.session_state.demo_mode = False
+
+
+left, right = st.columns(
+    [1, 1.25],
+    gap="large"
 )
 
-st.markdown(
-    '<div class="subtitle">AI-Powered Legal Document Generator</div>',
-    unsafe_allow_html=True,
-)
 
+with left:
 
-# ---------------------------------------------------------
-# Sidebar
-# ---------------------------------------------------------
-
-with st.sidebar:
-
-    st.header("⚙️ Settings")
-
-    backend_url = st.text_input(
-        "Backend URL",
-        value=BACKEND_URL,
+    st.subheader(
+        "Document Details"
     )
-
-    st.divider()
-
-    st.info(
-        "LegalEase helps generate customizable legal documents "
-        "using AI. Review generated documents carefully before use."
-    )
-
-
-# ---------------------------------------------------------
-# Main Input Section
-# ---------------------------------------------------------
-
-st.markdown(
-    '<div class="section-title">📄 Document Details</div>',
-    unsafe_allow_html=True,
-)
-
-col1, col2 = st.columns(2)
-
-with col1:
 
     document_type = st.selectbox(
         "Document Type",
         [
-            "Employment Agreement",
-            "Lease Agreement",
+            "Employment Contract",
             "Non-Disclosure Agreement (NDA)",
+            "Lease Agreement",
+            "Freelance Work Contract",
             "Service Agreement",
-            "Sales Agreement",
-            "Partnership Agreement",
-            "Internship Agreement",
-            "Freelance Agreement",
-            "Loan Agreement",
-            "Custom Legal Document",
-        ],
+            "Employment Offer Letter",
+            "Custom Agreement",
+        ]
     )
 
+    parties = st.text_area(
+        "Parties Involved",
+        placeholder=(
+            "Example: Jane Doe "
+            "(Service Provider), "
+            "TechNova Inc. (Client)"
+        ),
+        height=110,
+    )
 
-with col2:
+    terms = st.text_area(
+        "Terms & Conditions",
+        placeholder=(
+            "Separate clauses using semicolons.\n\n"
+            "Example:\n"
+            "Payment within 30 days; "
+            "Confidentiality must be maintained; "
+            "Either party may terminate with "
+            "15 days notice"
+        ),
+        height=180,
+    )
 
     effective_date = st.date_input(
         "Effective Date",
-        value=date.today(),
+        value=date.today()
     )
 
-
-parties = st.text_area(
-    "Parties",
-    placeholder=(
-        "Example:\n"
-        "Party 1: ABC Technologies Pvt. Ltd.\n"
-        "Party 2: John Kumar"
-    ),
-    height=120,
-)
-
-
-terms = st.text_area(
-    "Terms and Conditions",
-    placeholder=(
-        "Enter the important terms of the agreement.\n\n"
-        "Example:\n"
-        "- Salary: ₹30,000 per month\n"
-        "- Contract period: 1 year\n"
-        "- Working hours: 9 AM to 6 PM\n"
-        "- Notice period: 30 days"
-    ),
-    height=200,
-)
-
-
-# ---------------------------------------------------------
-# Logo Upload
-# ---------------------------------------------------------
-
-st.markdown(
-    '<div class="section-title">🎨 Branding</div>',
-    unsafe_allow_html=True,
-)
-
-logo_file = st.file_uploader(
-    "Upload Company / College Logo (optional)",
-    type=["png", "jpg", "jpeg"],
-)
-
-
-logo_base64 = None
-
-if logo_file is not None:
-
-    logo_bytes = logo_file.getvalue()
-
-    logo_base64 = base64.b64encode(logo_bytes).decode("utf-8")
-
-    st.image(
-        logo_bytes,
-        caption="Uploaded Logo",
-        width=150,
+    logo = st.file_uploader(
+        "Optional Logo",
+        type=[
+            "png",
+            "jpg",
+            "jpeg"
+        ],
     )
 
+    generate = st.button(
+        "✨ Generate Document",
+        type="primary",
+        use_container_width=True,
+    )
 
-# ---------------------------------------------------------
-# Generate Document
-# ---------------------------------------------------------
+    if generate:
 
-st.divider()
+        if (
+            not parties.strip()
+            or not terms.strip()
+        ):
 
-generate_button = st.button(
-    "🚀 Generate Legal Document",
-    type="primary",
-    use_container_width=True,
-)
+            st.error(
+                "Please enter parties and terms."
+            )
 
+        else:
 
-if generate_button:
+            payload = {
 
-    if not parties.strip():
+                "document_type":
+                    document_type,
 
-        st.error("Please enter the parties involved.")
+                "parties":
+                    parties,
 
-    elif not terms.strip():
+                "terms":
+                    terms,
 
-        st.error("Please enter the terms and conditions.")
+                "effective_date":
+                    effective_date.isoformat(),
+            }
 
-    else:
+            try:
 
-        request_data = {
-            "document_type": document_type,
-            "parties": parties,
-            "terms": terms,
-            "effective_date": str(effective_date),
-        }
+                with st.spinner(
+                    "Generating document..."
+                ):
 
-        try:
+                    response = requests.post(
+                        f"{BACKEND_URL}/generate",
+                        json=payload,
+                        timeout=120,
+                    )
 
-            with st.spinner("Generating legal document..."):
+                if response.ok:
 
-                response = requests.post(
-                    f"{backend_url}/generate",
-                    json=request_data,
-                    timeout=120,
-                )
+                    data = response.json()
 
-            if response.status_code == 200:
+                    st.session_state.document = (
+                        data["content"]
+                    )
 
-                result = response.json()
+                    st.session_state.demo_mode = (
+                        data["demo_mode"]
+                    )
 
-                generated_document = result.get(
-                    "document",
-                    "",
-                )
+                    if data["demo_mode"]:
 
-                st.session_state["generated_document"] = (
-                    generated_document
-                )
+                        st.warning(
+                            "Demo mode is active. "
+                            "Add GEMINI_API_KEY to "
+                            "generate with Gemini."
+                        )
 
-                st.session_state["document_type"] = document_type
+                    else:
 
-                st.success("✅ Document generated successfully!")
+                        st.success(
+                            "AI document generated."
+                        )
 
-            else:
+                else:
 
-                try:
-                    error_message = response.json()
-                except Exception:
-                    error_message = response.text
+                    st.error(
+                        response.text
+                    )
+
+            except requests.RequestException as error:
 
                 st.error(
-                    f"Backend error ({response.status_code}): "
-                    f"{error_message}"
+                    f"Backend connection failed: {error}"
                 )
 
-        except requests.exceptions.ConnectionError:
 
-            st.error(
-                "❌ Cannot connect to the backend.\n\n"
-                "Make sure FastAPI is running with:\n\n"
-                "uvicorn backend.main:app --reload "
-                "--host 127.0.0.1 --port 8000"
+with right:
+
+    st.subheader(
+        "Editable Document"
+    )
+
+    if st.session_state.document:
+
+        st.session_state.document = (
+            st.text_area(
+                "Edit your document",
+                value=st.session_state.document,
+                height=560,
+                label_visibility="collapsed",
+            )
+        )
+
+        st.markdown(
+            "**Document Preview**"
+        )
+
+        preview = html.escape(
+            st.session_state.document
+        ).replace(
+            "\n",
+            "<br>"
+        )
+
+        st.markdown(
+            f"""
+            <div class="preview">
+                {preview}
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        logo_base64 = None
+
+        if logo is not None:
+
+            logo_base64 = (
+                "data:"
+                + logo.type
+                + ";base64,"
+                + base64.b64encode(
+                    logo.getvalue()
+                ).decode()
             )
 
-        except requests.exceptions.Timeout:
+        export_payload = {
 
-            st.error(
-                "❌ The request timed out. "
-                "Please try again."
-            )
+            "content":
+                st.session_state.document,
 
-        except Exception as e:
+            "document_type":
+                document_type,
 
-            st.error(
-                f"❌ Unexpected error: {str(e)}"
-            )
+            "logo_base64":
+                logo_base64,
+        }
 
+        st.divider()
 
-# ---------------------------------------------------------
-# Generated Document
-# ---------------------------------------------------------
+        st.markdown(
+            "**Export Document**"
+        )
 
-if "generated_document" in st.session_state:
+        col1, col2, col3 = st.columns(3)
 
-    st.divider()
-
-    st.markdown(
-        '<div class="section-title">📝 Generated Document</div>',
-        unsafe_allow_html=True,
-    )
-
-    edited_document = st.text_area(
-        "Edit your document",
-        value=st.session_state["generated_document"],
-        height=600,
-    )
-
-    st.session_state["generated_document"] = edited_document
-
-    # -----------------------------------------------------
-    # Preview
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">👁️ Preview</div>',
-        unsafe_allow_html=True,
-    )
-
-    preview_text = edited_document.replace(
-        "\n",
-        "<br>",
-    )
-
-    st.markdown(
-        f"""
-        <div class="preview-box">
-            {preview_text}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.divider()
-
-    # -----------------------------------------------------
-    # Download Buttons
-    # -----------------------------------------------------
-
-    st.markdown(
-        '<div class="section-title">⬇️ Download</div>',
-        unsafe_allow_html=True,
-    )
-
-    download_col1, download_col2, download_col3 = st.columns(3)
-
-
-    # -----------------------------------------------------
-    # TXT
-    # -----------------------------------------------------
-
-    with download_col1:
-
-        if st.button(
-            "📄 Prepare TXT",
-            use_container_width=True,
+        if col1.button(
+            "TXT",
+            use_container_width=True
         ):
 
             try:
 
-                export_response = requests.post(
-                    f"{backend_url}/export/txt",
-                    json={
-                        "document": edited_document,
-                    },
+                response = requests.post(
+                    f"{BACKEND_URL}/export/txt",
+                    json=export_payload,
                     timeout=60,
                 )
 
-                if export_response.status_code == 200:
+                if response.ok:
 
                     st.download_button(
-                        label="⬇️ Download TXT",
-                        data=export_response.content,
-                        file_name="legalease_document.txt",
+                        "Save TXT",
+                        response.content,
+                        file_name=(
+                            "legalease_document.txt"
+                        ),
                         mime="text/plain",
                         use_container_width=True,
                     )
 
                 else:
 
-                    st.error("TXT export failed.")
+                    st.error(
+                        response.text
+                    )
 
-            except Exception as e:
+            except requests.RequestException as error:
 
-                st.error(
-                    f"TXT export error: {str(e)}"
-                )
+                st.error(str(error))
 
-
-    # -----------------------------------------------------
-    # DOCX
-    # -----------------------------------------------------
-
-    with download_col2:
-
-        if st.button(
-            "📝 Prepare DOCX",
-            use_container_width=True,
+        if col2.button(
+            "DOCX",
+            use_container_width=True
         ):
 
             try:
 
-                export_response = requests.post(
-                    f"{backend_url}/export/docx",
-                    json={
-                        "document": edited_document,
-                        "logo_base64": logo_base64,
-                    },
+                response = requests.post(
+                    f"{BACKEND_URL}/export/docx",
+                    json=export_payload,
                     timeout=60,
                 )
 
-                if export_response.status_code == 200:
+                if response.ok:
 
                     st.download_button(
-                        label="⬇️ Download DOCX",
-                        data=export_response.content,
-                        file_name="legalease_document.docx",
+                        "Save DOCX",
+                        response.content,
+                        file_name=(
+                            "legalease_document.docx"
+                        ),
                         mime=(
-                            "application/vnd.openxmlformats-"
-                            "officedocument.wordprocessingml.document"
+                            "application/"
+                            "vnd.openxmlformats-officedocument."
+                            "wordprocessingml.document"
                         ),
                         use_container_width=True,
                     )
 
                 else:
 
-                    st.error("DOCX export failed.")
+                    st.error(
+                        response.text
+                    )
 
-            except Exception as e:
+            except requests.RequestException as error:
 
-                st.error(
-                    f"DOCX export error: {str(e)}"
-                )
+                st.error(str(error))
 
-
-    # -----------------------------------------------------
-    # PDF
-    # -----------------------------------------------------
-
-    with download_col3:
-
-        if st.button(
-            "📕 Prepare PDF",
-            use_container_width=True,
+        if col3.button(
+            "PDF",
+            use_container_width=True
         ):
 
             try:
 
-                export_response = requests.post(
-                    f"{backend_url}/export/pdf",
-                    json={
-                        "document": edited_document,
-                        "logo_base64": logo_base64,
-                    },
+                response = requests.post(
+                    f"{BACKEND_URL}/export/pdf",
+                    json=export_payload,
                     timeout=60,
                 )
 
-                if export_response.status_code == 200:
+                if response.ok:
 
                     st.download_button(
-                        label="⬇️ Download PDF",
-                        data=export_response.content,
-                        file_name="legalease_document.pdf",
+                        "Save PDF",
+                        response.content,
+                        file_name=(
+                            "legalease_document.pdf"
+                        ),
                         mime="application/pdf",
                         use_container_width=True,
                     )
 
                 else:
 
-                    st.error("PDF export failed.")
+                    st.error(
+                        response.text
+                    )
 
-            except Exception as e:
+            except requests.RequestException as error:
 
-                st.error(
-                    f"PDF export error: {str(e)}"
-                )
+                st.error(str(error))
 
+    else:
 
-# ---------------------------------------------------------
-# Footer
-# ---------------------------------------------------------
+        st.info(
+            "Generate a document to see "
+            "the editable preview here."
+        )
+
 
 st.divider()
 
 st.caption(
-    "LegalEase © 2026 | AI-Powered Legal Document Generator"
+    "LegalEase is a drafting aid and not "
+    "a substitute for advice from a qualified lawyer."
 )
